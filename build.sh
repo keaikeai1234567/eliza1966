@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT=/data/user/work/eliza-android
+PROJECT=/data/user/work/eliza1966
 BT=/opt/android-sdk/build-tools/34.0.0
 PLATFORM=/opt/android-sdk/platforms/android-34/android.jar
 ASSETS=$PROJECT/app/src/main/assets
@@ -49,6 +49,7 @@ echo "=== 5. Zipalign ==="
 $BT/zipalign -f -p 4 $BUILD/unsigned.apk $BUILD/aligned.apk
 
 echo "=== 6. 签名 ==="
+# 用 apksigner 同时启用 v1+v2+v3 签名
 $BT/apksigner sign \
   --ks $KEYSTORE \
   --ks-pass pass:android \
