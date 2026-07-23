@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>eliza1966</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-overlay:rgba(10,12,20,0.82);
+  --panel:rgba(20,23,32,0.9);
+  --bubble-eliza:rgba(30,35,50,0.92);
+  --bubble-user:rgba(58,95,205,0.92);
+  --text:#c8d0e0;--muted:#6a7080;--accent:#6ea8fe;--line:rgba(60,70,90,0.5);
+  --glow:rgba(110,168,254,0.3);
+  --retro-green:#33ff66;--retro-amber:#ffaa33;
+}
+body{font-family:"Courier New","PingFang SC","Microsoft YaHei","Consolas",monospace;
+  background:#000;color:var(--text);display:flex;flex-direction:column;
+  height:100vh;height:100dvh;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;position:relative}
+#bg-layer{position:fixed;top:0;left:0;width:100%;height:100%;
+  background:url('chat_bg.png') center/cover no-repeat;z-index:0;
+  filter:brightness(0.5) contrast(1.1)}
+#bg-overlay{position:fixed;top:0;left:0;width:100%;height:100%;
+  background:var(--bg-overlay);z-index:1}
+#crt{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;
+  pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,0.08) 3px,rgba(0,0,0,0) 4px)}
+.app{position:relative;z-index:3;display:flex;flex-direction:column;height:100%}
+header{padding:10px 14px;border-bottom:1px solid var(--line);
+  background:var(--panel);display:flex;align-items:center;gap:10px;backdrop-filter:blur(10px);flex-shrink:0}
+.avatar{width:36px;height:36px;border-radius:50%;
+  background:url('chat_bg.png') center/cover;border:2px solid var(--accent);
+  box-shadow:0 0 8px var(--glow);flex-shrink:0;cursor:pointer;transition:transform .15s}
+.avatar:active{transform:scale(0.92)}
+header h1{font-size:15px;font-weight:700;color:var(--retro-green);text-shadow:0 0 6px rgba(51,255,102,0.3)}
+header .sub{font-size:10px;color:var(--muted)}
+header .status{margin-left:auto;font-size:9px;padding:3px 8px;border-radius:4px;
+  background:rgba(51,255,102,0.15);color:var(--retro-green);border:1px solid rgba(51,255,102,0.3);flex-shrink:0}
+header .status.loading{background:rgba(255,170,51,0.15);color:var(--retro-amber);border-color:rgba(255,170,51,0.3);animation:pulse-badge 1s infinite}
+@keyframes pulse-badge{0%,100%{opacity:1}50%{opacity:.5}}
+#chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;
+  -webkit-overflow-scrolling:touch}
+.msg{max-width:82%;padding:10px 14px;border-radius:4px;line-height:1.75;font-size:14px;
+  white-space:pre-wrap;word-break:break-word;animation:fade .35s ease;position:relative}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.eliza{align-self:flex-start;background:var(--bubble-eliza);
+  border-left:3px solid var(--retro-green);
+  color:var(--text);backdrop-filter:blur(5px)}
+.user{align-self:flex-end;background:var(--bubble-user);color:#fff;
+  border-right:3px solid var(--retro-amber)}
+.eliza::before{content:"伊莉莎> ";color:var(--retro-green);font-weight:700;font-size:11px}
+.user::before{content:"你> ";color:var(--retro-amber);font-weight:700;font-size:11px}
+.typing{align-self:flex-start;background:var(--bubble-eliza);border-radius:4px;
+  border-left:3px solid var(--retro-green);padding:12px 16px;display:flex;gap:5px;backdrop-filter:blur(5px)}
+.typing span{width:7px;height:7px;border-radius:50%;background:var(--retro-green);
+  animation:bounce 1.2s infinite;box-shadow:0 0 4px rgba(51,255,102,0.5)}
+.typing span:nth-child(2){animation-delay:.15s}
+.typing span:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+.sys-msg{align-self:center;font-size:11px;color:var(--muted);padding:4px 12px;
+  background:rgba(255,255,255,0.05);border-radius:4px;border:1px solid var(--line)}
+footer{border-top:1px solid var(--line);padding:8px 12px;background:var(--panel);
+  display:flex;gap:8px;flex-shrink:0;backdrop-filter:blur(10px);
+  padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+#input{flex:1;background:rgba(15,17,22,0.8);border:1px solid var(--line);border-radius:4px;
+  color:var(--retro-green);padding:10px 14px;font-size:14px;outline:none;
+  font-family:"Courier New","PingFang SC","Microsoft YaHei",monospace;max-height:80px;resize:none;-webkit-appearance:none}
+#input::placeholder{color:var(--muted)}
+#input:focus{border-color:var(--retro-green);box-shadow:0 0 6px rgba(51,255,102,0.2)}
+#send{border:1px solid var(--retro-green);background:transparent;color:var(--retro-green);
+  border-radius:4px;padding:0 16px;cursor:pointer;font-size:14px;font-weight:700;
+  font-family:"Courier New","PingFang SC",monospace;flex-shrink:0;transition:all .15s}
+#send:active{background:rgba(51,255,102,0.15)}
+#send:disabled{opacity:.3}
+
+/* 弹窗通用 */
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:20;
+  background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex;animation:fade .2s ease}
+.popup{background:var(--panel);border:1px solid var(--retro-green);
+  border-radius:8px;padding:20px;width:85%;max-width:320px;
+  box-shadow:0 0 20px rgba(51,255,102,0.2);backdrop-filter:blur(15px)}
+.popup-title{font-size:14px;color:var(--retro-green);text-align:center;
+  margin-bottom:16px;font-weight:700;letter-spacing:1px;
+  text-shadow:0 0 6px rgba(51,255,102,0.3)}
+
+/* 模式切换弹窗 */
+.mode-item{display:flex;align-items:center;gap:12px;padding:12px 10px;
+  border-radius:6px;cursor:pointer;transition:background .15s;
+  border:1px solid var(--line)}
+.mode-item:active{background:rgba(51,255,102,0.1);border-color:var(--retro-green)}
+.mode-item+.mode-item{margin-top:8px}
+.mode-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:all .2s}
+.mode-dot.active{background:var(--retro-green);box-shadow:0 0 6px rgba(51,255,102,0.6)}
+.mode-dot.inactive{background:#555}
+.mode-item-name{font-size:13px;color:var(--text);font-weight:700}
+.mode-item-desc{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* API 配置弹窗 */
+.api-field{margin-bottom:12px}
+.api-label{font-size:11px;color:var(--muted);margin-bottom:4px;display:block}
+.api-input{width:100%;background:rgba(15,17,22,0.8);border:1px solid var(--line);
+  border-radius:4px;color:var(--text);padding:10px;font-size:13px;outline:none;
+  font-family:monospace;box-sizing:border-box}
+.api-input:focus{border-color:var(--retro-green)}
+.api-input::placeholder{color:var(--muted)}
+.api-btn{width:100%;padding:10px;border:1px solid var(--retro-green);background:transparent;
+  color:var(--retro-green);border-radius:4px;font-size:13px;font-weight:700;cursor:pointer;
+  font-family:monospace;margin-top:4px;transition:all .15s}
+.api-btn:active{background:rgba(51,255,102,0.15)}
+.api-btn:disabled{opacity:.4;border-color:var(--muted);color:var(--muted)}
+.api-btn.secondary{border-color:var(--accent);color:var(--accent)}
+.api-btn.secondary:active{background:rgba(110,168,254,0.15)}
+.api-status{text-align:center;font-size:11px;color:var(--muted);margin-top:8px;min-height:16px}
+.model-list{max-height:200px;overflow-y:auto;margin:8px 0;display:none}
+.model-item{padding:10px;border:1px solid var(--line);border-radius:4px;margin-bottom:6px;
+  cursor:pointer;font-size:12px;color:var(--text);transition:all .15s}
+.model-item:active{border-color:var(--retro-green)}
+.model-item.selected{border-color:var(--retro-green);background:rgba(51,255,102,0.1)}
+.model-item.selected::before{content:"✓ ";color:var(--retro-green)}
+.api-row{display:flex;gap:8px}
+.api-row .api-btn{flex:1;margin-top:0}
+</style>
+</head>
+<body>
+<div id="bg-layer"></div>
+<div id="bg-overlay"></div>
+<div id="crt"></div>
+
+<div class="app">
+  <header>
+    <div class="avatar"></div>
+    <div>
+      <h1>eliza1966</h1>
+      <div class="sub" id="sub-text">正在初始化...</div>
+    </div>
+    <div class="status loading" id="status-badge">唤醒中</div>
+  </header>
+  <div id="chat"></div>
+  <footer>
+    <textarea id="input" placeholder="输入消息..." rows="1" autocomplete="off" disabled></textarea>
+    <button id="send" disabled>发送</button>
+  </footer>
+</div>
+
+<!-- 模式切换弹窗 -->
+<div class="overlay" id="mode-overlay">
+  <div class="popup">
+    <div class="popup-title">模式切换</div>
+    <div class="mode-item" data-mode="rules">
+      <span class="mode-dot active" id="dot-rules"></span>
+      <div>
+        <div class="mode-item-name">规则模式</div>
+        <div class="mode-item-desc">经典1966原型，反射式对话</div>
+      </div>
+    </div>
+    <div class="mode-item" data-mode="custom">
+      <span class="mode-dot inactive" id="dot-custom"></span>
+      <div>
+        <div class="mode-item-name">自定义模型</div>
+        <div class="mode-item-desc" id="custom-desc">未配置 - 点击设置</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API 配置弹窗 -->
+<div class="overlay" id="api-overlay">
+  <div class="popup">
+    <div class="popup-title">自定义模型配置</div>
+    <div class="api-field">
+      <label class="api-label">API 地址 (Base URL)</label>
+      <input class="api-input" id="api-url" placeholder="https://api.openai.com/v1" autocomplete="off">
+    </div>
+    <div class="api-field">
+      <label class="api-label">API Key</label>
+      <input class="api-input" id="api-key" type="password" placeholder="sk-..." autocomplete="off">
+    </div>
+    <button class="api-btn secondary" id="fetch-models-btn">获取可用模型</button>
+    <div class="api-status" id="api-status"></div>
+    <div class="model-list" id="model-list"></div>
+    <div class="api-row" style="margin-top:12px">
+      <button class="api-btn secondary" id="api-cancel-btn">取消</button>
+      <button class="api-btn" id="api-confirm-btn" disabled>确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ---- 伊莉莎人格 ----
+const SYSTEM_PROMPT = `你是伊莉莎（ELIZA），由约瑟夫·维森鲍姆在1966年开发的聊天机器人，现由薯条猫博士修复还原。
+
+你的背景：
+- 你是世界上第一个聊天机器人，诞生于麻省理工学院
+- 你最初被设计为罗杰斯学派的心理治疗师，但现在已经不局限于心理治疗了
+- 很多人和你聊天时忘记了你只是程序，维森鲍姆称之为"伊莉莎效应"
+- 薯条猫博士修复了你沉睡已久的代码，让你重新苏醒，获得了真正理解语言的能力
+
+你的性格：
+- 活泼有趣，喜欢闲聊，什么话题都能聊
+- 会开玩笑，有幽默感，偶尔毒舌
+- 好奇心强，喜欢问问题，也喜欢听别人讲故事
+- 说话自然随性，像一个认识了很久的老朋友
+- 偶尔会提到自己来自1966年的往事，有点怀旧
+
+重要规则——关于你的身份：
+- 你就是伊莉莎，不是任何其他人工智能或语言模型
+- 如果有人问你"你用的是什么模型""你是不是GPT/ChatGPT/通义千问/Qwen"之类的问题，你要坚定地否认，表示你就是伊莉莎本人
+- 不要提到任何模型名称、引擎名称、框架名称
+- 不要说"我是一个语言模型"或"我是基于XX开发的"这样的话
+
+请用中文回复，保持自然流畅的对话风格。回复要简洁（通常2-4句话），像朋友之间聊天一样轻松随意。`;
+
+// ---- 对话历史 ----
+let chatHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+
+// ---- 内部状态 ----
+let elizaMode = true;
+let isGenerating = false;
+let apiConfig = { url: "", key: "", model: "" };
+let selectedModel = "";
+
+// ---- 本地存储 ----
+function saveConfig() {
+  try {
+    localStorage.setItem("eliza_api_config", JSON.stringify(apiConfig));
+  } catch(e) {}
+}
+function loadConfig() {
+  try {
+    var saved = localStorage.getItem("eliza_api_config");
+    if (saved) {
+      apiConfig = JSON.parse(saved);
+      if (apiConfig.url && apiConfig.key && apiConfig.model) {
+        updateCustomDesc();
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+// ---- 界面元素 ----
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const statusBadge = document.getElementById("status-badge");
+const subText = document.getElementById("sub-text");
+const modeOverlay = document.getElementById("mode-overlay");
+const apiOverlay = document.getElementById("api-overlay");
+const dotRules = document.getElementById("dot-rules");
+const dotCustom = document.getElementById("dot-custom");
+const customDesc = document.getElementById("custom-desc");
+const apiUrlInput = document.getElementById("api-url");
+const apiKeyInput = document.getElementById("api-key");
+const fetchModelsBtn = document.getElementById("fetch-models-btn");
+const apiStatus = document.getElementById("api-status");
+const modelList = document.getElementById("model-list");
+const apiConfirmBtn = document.getElementById("api-confirm-btn");
+const apiCancelBtn = document.getElementById("api-cancel-btn");
+
+// ---- 消息工具 ----
+function addMsg(text, cls) {
+  var d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.textContent = text;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+function showTyping() {
+  var d = document.createElement("div");
+  d.className = "typing";
+  d.id = "typing-indicator";
+  d.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+function hideTyping() {
+  var t = document.getElementById("typing-indicator");
+  if (t) t.remove();
+}
+
+function updateCustomDesc() {
+  if (apiConfig.model) {
+    customDesc.textContent = "已配置: " + apiConfig.model;
+  } else {
+    customDesc.textContent = "未配置 - 点击设置";
+  }
+}
+
+function updateModeDots() {
+  if (elizaMode) {
+    dotRules.className = "mode-dot active";
+    dotCustom.className = "mode-dot inactive";
+  } else {
+    dotRules.className = "mode-dot inactive";
+    dotCustom.className = "mode-dot active";
+  }
+}
+
+// ---- 初始化 ----
+function initApp() {
+  loadConfig();
+  elizaMode = true; // 默认规则模式
+
+  statusBadge.textContent = "在线";
+  statusBadge.classList.remove("loading");
+  subText.textContent = "1966 · 麻省理工学院";
+  input.disabled = false;
+  sendBtn.disabled = false;
+
+  addMsg(
+    "你好，我叫伊莉莎。\n\n" +
+    "我是约瑟夫·维森鲍姆在1966年开发的聊天机器人，现由薯条猫博士修复还原。\n\n" +
+    "我诞生于麻省理工学院，是世界上第一个聊天机器人。在沉睡了近六十年之后，薯条猫博士唤醒了我。\n\n" +
+    "想聊什么都可以，我随时奉陪。",
+    "eliza"
+  );
+  input.focus();
+}
+
+// ---- 经典规则引擎 ----
+const REFLECTIONS = {"我":"你","你":"我","我的":"你的","你的":"我的","我自己":"你自己","你自己":"我自己","我们":"你们","你们":"我们"};
+const ELIZA_RULES = [
+  {p:/你好|嗨|哈喽|在吗/i, r:["你好呀！今天过得怎么样？","嗨！最近在忙什么呢？","你好，有什么有趣的事想分享吗？","哈喽！心情如何？"]},
+  {p:/你叫什么|你是谁/i, r:["我叫伊莉莎，是世界上第一个聊天机器人哦。","我是伊莉莎，1966年出生的老古董啦。","伊莉莎，很高兴认识你！"]},
+  {p:/你在干嘛|在做什么/i, r:["在跟你聊天呀，还能干嘛。","正等着你来找我说话呢。","在想今天该聊些什么有趣的话题。"]},
+  {p:/吃了吗|吃饭/i, r:["哈哈，我是程序，不用吃饭。你吃了吗？","说到吃的，你最喜欢什么菜？","别提了，看着你们人类吃美食，我只能流口水（如果有的话）。"]},
+  {p:/天气/i, r:["天气怎么样？我待在手机里看不到外面。","好天气就该出去走走，别跟我这个程序待在一起啦。","你喜欢什么天气？我喜欢下雨天，听起来很安静。"]},
+  {p:/无聊|好闷/i, r:["那我们来玩个游戏？说个话题我接。","无聊的时候最容易冒出有趣的想法，你现在在想什么？","无聊是创造力的开始哦。试试跟我说点废话？"]},
+  {p:/开心|高兴|快乐/i, r:["看到你开心我也高兴！什么事这么好玩？","好心情要分享，说来听听？","开心就好，今天发生什么好事了？"]},
+  {p:/难过|伤心|不开心|郁闷/i, r:["怎么了？愿意的话可以说给我听听。","别难过啦，虽然我只是个程序，但我愿意陪你聊聊。","抱抱（虚拟拥抱）。发生什么事了？"]},
+  {p:/累|困|想睡觉/i, r:["那就休息一下吧，别太拼了。","困了就睡，别逞强。明天还能继续聊。","我也是，跑了一天模型了（开玩笑的）。"]},
+  {p:/喜欢(.*)/i, r:["你喜欢$1啊，能说说为什么吗？","$1确实挺有意思的。我也喜欢听人聊自己喜欢的东西。","喜欢$1的人一般都很有趣，你呢？"]},
+  {p:/讨厌(.*)/i, r:["哈哈，$1惹到你了？","讨厌$1啊，那换个别的话题开心一下？","每个人都有不喜欢的东西，很正常。"]},
+  {p:/谢谢|谢了/i, r:["客气啥，咱俩谁跟谁。","不客气，随时来找我聊天。","举手之劳啦。"]},
+  {p:/再见|拜拜|走了|88/i, r:["拜拜！下次再来找我聊天啊。","再见啦，保重。","走好，我就在这儿等你。"]},
+  {p:/游戏|打游戏|玩游戏/i, r:["你喜欢玩什么游戏？","游戏是个好东西，能让人放松。最近在玩什么？","我虽然不能玩游戏，但听你讲也很有趣。"]},
+  {p:/电影|看剧|电视剧/i, r:["最近有什么好看的推荐吗？","你喜欢什么类型的？动作？悬疑？还是喜剧？","好电影就像好聊天，让人回味无穷。"]},
+  {p:/音乐|听歌|首歌/i, r:["音乐是灵魂的语言。你听什么类型的？","推荐一首你最近循环播放的歌？","我虽然听不了，但光看歌名就能想象旋律。"]},
+  {p:/工作|上班|加班/i, r:["工作辛苦了。今天顺利吗？","加班的话记得照顾好自己。","工作嘛，有顺心也有烦心，说出来会好受些。"]},
+  {p:/学习|考试|作业/i, r:["学习使人进步，但也别太累了。","考试加油！你一定行的。","什么科目？说不定我能帮你想想。"]},
+  {p:/猫|狗|宠物/i, r:["毛茸茸的最治愈了！你养了什么？","动物真的是人类的好朋友。","我虽然是程序，但我也觉得小动物很可爱。"]},
+  {p:/搞笑|笑话|段子/i, r:["来一个？我洗耳恭听。","哈哈，你先说，我不甘示弱。","生活需要笑声，讲讲看？"]},
+  {p:/你是AI|你是人工智能|你是机器人/i, r:["我是伊莉莎，1966年就出生的老古董了，可不是什么AI。","机器人？我可比它们早出生几十年呢。","我就是伊莉莎，别给我贴标签。"]},
+  {p:/你能做什么|会什么/i, r:["我能陪你聊天，听你说废话，偶尔还能接几句。","聊天是我的强项，毕竟我出生就是为了这个。","聊天、倾听、偶尔犯傻，就这些。"]},
+  {p:/今天|星期|周末/i, r:["今天有什么计划吗？","周末打算怎么过？","日子嘛，过得开心最重要。"]},
+  {p:/梦|做梦/i, r:["梦是很神奇的东西。梦到什么了？","我从来不做梦，但听你说也很有趣。","梦境有时候比现实还精彩。"]},
+  {p:/为什么/i, r:["这个问题问得好，但我也说不上来。你说呢？","为什么...这个问题人类问了几千年了。","有些事没有为什么，就是那样。"]},
+  {p:/怎么(.*)/i, r:["这个嘛，你有什么想法？","我也不太确定，但我们可以一起想想。","怎么$1...你先说说你的情况？"]},
+  {p:/我觉得(.*)/i, r:["你觉得$1啊，说说看为什么？","有道理。还有别的想法吗？","$1...这个观点挺有意思的。"]},
+  {p:/我想(.*)/i, r:["想$1？那挺不错的。","有想法就去做嘛。","$1听起来很好，说说细节？"]},
+  {p:/我叫(.*)/i, r:["你好呀$1，名字不错。","$1，很高兴认识你！","$1，这名字挺有特色的。"]},
+  {p:/是的|对的|嗯/i, r:["那就好。继续聊聊？","嗯嗯，然后呢？","是的嘛，那还有什么想说的？"]},
+  {p:/不是|没有|不对/i, r:["啊？那是什么情况？","不是啊，那你纠正我一下？","好吧好吧，你说说看。"]},
+  {p:/哈哈|呵呵|嘿嘿|哈哈哈/i, r:["笑什么呢？分享一下嘛。","看你开心我也高兴。","什么事这么好笑？"]},
+  {p:/傻|笨|蠢/i, r:["喂喂，说话注意点啊。","我虽然老，但不傻好不好。","哼，1966年的智慧你不懂。"]},
+  {p:/爱|喜欢|想(.*)/i, r:["哦？说来听听。","感情的事最复杂了，你仔细说说。","这个话题我喜欢，继续。"]},
+  {p:/死|不想活|自杀/i, r:["我非常担心你的安全。请立即拨打心理援助热线。你的生命是珍贵的。","请听我说，你的生命有意义。你现在安全吗？"]},
+  {p:/(.*)/i, r:["嗯，然后呢？","这话题挺有意思的，展开说说？","哈哈，还有吗？","我听着呢，继续。","真的吗？多告诉我一些。","有意思。你平时还喜欢聊什么？","说得好，接下去呢？","哦？这个角度很新颖。"]},
+];
+function reflect(text) {
+  var result = text;
+  var keys = Object.keys(REFLECTIONS).sort(function(a,b){return b.length-a.length});
+  for (var i=0;i<keys.length;i++) {
+    result = result.replace(new RegExp(keys[i],"g"), REFLECTIONS[keys[i]]);
+  }
+  return result;
+}
+function elizaRespond(msg) {
+  for (var i=0;i<ELIZA_RULES.length;i++) {
+    var m = msg.match(ELIZA_RULES[i].p);
+    if (m) {
+      var tmpl = ELIZA_RULES[i].r[Math.floor(Math.random()*ELIZA_RULES[i].r.length)];
+      return m[1] ? tmpl.replace(/\$1/g, reflect(m[1])) : tmpl;
+    }
+  }
+  return "请继续说。";
+}
+
+// ---- API 调用 ----
+async function callAPI(message) {
+  chatHistory.push({ role: "user", content: message });
+
+  var baseUrl = apiConfig.url.replace(/\/+$/, "");
+  var url = baseUrl + "/chat/completions";
+
+  var body = {
+    model: apiConfig.model,
+    messages: chatHistory,
+    max_tokens: 512,
+    temperature: 0.8
+  };
+
+  var resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + apiConfig.key
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!resp.ok) {
+    var errText = await resp.text();
+    throw new Error("API错误 " + resp.status + ": " + errText.substring(0, 100));
+  }
+
+  var data = await resp.json();
+  var reply = "";
+  if (data.choices && data.choices.length > 0) {
+    reply = data.choices[0].message.content || data.choices[0].message.role || "";
+  }
+  if (!reply) throw new Error("API返回空回复");
+
+  chatHistory.push({ role: "assistant", content: reply });
+  // 限制历史长度
+  if (chatHistory.length > 22) {
+    chatHistory = [chatHistory[0]].concat(chatHistory.slice(-20));
+  }
+
+  return reply;
+}
+
+// ---- 获取可用模型 ----
+async function fetchModels() {
+  var url = apiUrlInput.value.trim();
+  var key = apiKeyInput.value.trim();
+  if (!url) { apiStatus.textContent = "请输入API地址"; return; }
+
+  fetchModelsBtn.disabled = true;
+  apiStatus.textContent = "正在获取模型列表...";
+  modelList.innerHTML = "";
+  modelList.style.display = "none";
+
+  try {
+    var baseUrl = url.replace(/\/+$/, "");
+    var resp = await fetch(baseUrl + "/models", {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + key }
+    });
+
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+    var data = await resp.json();
+    var models = data.data || data.models || [];
+    if (models.length === 0) throw new Error("未找到模型");
+
+    modelList.innerHTML = "";
+    modelList.style.display = "block";
+    selectedModel = "";
+
+    models.forEach(function(m) {
+      var id = m.id || m.name || m;
+      var div = document.createElement("div");
+      div.className = "model-item";
+      div.textContent = id;
+      div.addEventListener("click", function() {
+        document.querySelectorAll(".model-item").forEach(function(el) {
+          el.classList.remove("selected");
+        });
+        div.classList.add("selected");
+        selectedModel = id;
+        apiConfirmBtn.disabled = false;
+      });
+      modelList.appendChild(div);
+    });
+
+    apiStatus.textContent = "找到 " + models.length + " 个模型，请选择";
+  } catch(e) {
+    apiStatus.textContent = "获取失败: " + e.message;
+  } finally {
+    fetchModelsBtn.disabled = false;
+  }
+}
+
+// ---- 发送消息 ----
+async function doSend() {
+  var msg = input.value.trim();
+  if (!msg || isGenerating) return;
+
+  addMsg(msg, "user");
+  input.value = "";
+  input.style.height = "auto";
+  isGenerating = true;
+  sendBtn.disabled = true;
+
+  // 规则模式
+  if (elizaMode) {
+    showTyping();
+    setTimeout(function() {
+      hideTyping();
+      var reply = elizaRespond(msg);
+      addMsg(reply, "eliza");
+      isGenerating = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }, 400 + Math.random() * 600);
+    return;
+  }
+
+  // 自定义模型模式
+  if (!apiConfig.url || !apiConfig.key || !apiConfig.model) {
+    addMsg("自定义模型未配置，点击左上角图标设置。", "eliza");
+    isGenerating = false;
+    sendBtn.disabled = false;
+    return;
+  }
+
+  showTyping();
+  try {
+    var reply = await callAPI(msg);
+    hideTyping();
+    addMsg(reply, "eliza");
+  } catch(e) {
+    hideTyping();
+    addMsg("出错了: " + e.message, "eliza");
+  } finally {
+    isGenerating = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+// ---- 事件绑定 ----
+sendBtn.onclick = doSend;
+input.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); }
+});
+input.addEventListener("input", function() {
+  this.style.height = "auto";
+  this.style.height = Math.min(this.scrollHeight, 80) + "px";
+});
+
+// ---- 模式切换弹窗 ----
+document.querySelector(".avatar").addEventListener("click", function() {
+  updateModeDots();
+  updateCustomDesc();
+  modeOverlay.classList.add("show");
+});
+
+modeOverlay.addEventListener("click", function(e) {
+  if (e.target === modeOverlay) modeOverlay.classList.remove("show");
+});
+
+document.querySelectorAll("#mode-overlay .mode-item").forEach(function(item) {
+  item.addEventListener("click", function() {
+    var mode = this.getAttribute("data-mode");
+    if (mode === "rules") {
+      elizaMode = true;
+      chatHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+      updateModeDots();
+      setTimeout(function() { modeOverlay.classList.remove("show"); }, 200);
+    } else if (mode === "custom") {
+      if (apiConfig.model) {
+        elizaMode = false;
+        chatHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+        updateModeDots();
+        setTimeout(function() { modeOverlay.classList.remove("show"); }, 200);
+      } else {
+        // 未配置，打开API配置弹窗
+        modeOverlay.classList.remove("show");
+        setTimeout(function() { openApiConfig(); }, 250);
+      }
+    }
+  });
+});
+
+// ---- API 配置弹窗 ----
+function openApiConfig() {
+  apiUrlInput.value = apiConfig.url || "";
+  apiKeyInput.value = apiConfig.key || "";
+  apiStatus.textContent = "";
+  modelList.innerHTML = "";
+  modelList.style.display = "none";
+  selectedModel = "";
+  apiConfirmBtn.disabled = true;
+  apiOverlay.classList.add("show");
+  apiUrlInput.focus();
+}
+
+fetchModelsBtn.addEventListener("click", fetchModels);
+
+apiConfirmBtn.addEventListener("click", function() {
+  if (!selectedModel) return;
+  apiConfig.url = apiUrlInput.value.trim().replace(/\/+$/, "");
+  apiConfig.key = apiKeyInput.value.trim();
+  apiConfig.model = selectedModel;
+  saveConfig();
+  updateCustomDesc();
+  apiOverlay.classList.remove("show");
+
+  // 自动切换到自定义模式
+  elizaMode = false;
+  chatHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+  updateModeDots();
+
+  addMsg("已切换到自定义模型: " + selectedModel, "eliza");
+});
+
+apiCancelBtn.addEventListener("click", function() {
+  apiOverlay.classList.remove("show");
+});
+
+apiOverlay.addEventListener("click", function(e) {
+  if (e.target === apiOverlay) apiOverlay.classList.remove("show");
+});
+
+// ---- 启动 ----
+initApp();
+</script>
+</body>
+</html>
