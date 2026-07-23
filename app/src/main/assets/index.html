@@ -134,7 +134,6 @@ footer{border-top:1px solid var(--line);padding:8px 12px;background:var(--panel)
     <div class="avatar"></div>
     <div>
       <h1>eliza1966</h1>
-      <div class="sub" id="sub-text">正在初始化...</div>
     </div>
     <div class="status loading" id="status-badge">唤醒中</div>
   </header>
@@ -249,7 +248,6 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 const statusBadge = document.getElementById("status-badge");
-const subText = document.getElementById("sub-text");
 const modeOverlay = document.getElementById("mode-overlay");
 const apiOverlay = document.getElementById("api-overlay");
 const dotRules = document.getElementById("dot-rules");
@@ -309,7 +307,6 @@ function initApp() {
 
   statusBadge.textContent = "在线";
   statusBadge.classList.remove("loading");
-  subText.textContent = "1966 · 麻省理工学院";
   input.disabled = false;
   sendBtn.disabled = false;
 
